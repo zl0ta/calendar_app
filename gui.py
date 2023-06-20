@@ -2,12 +2,80 @@ import sys
 import re
 
 from css import style_sheet
-from clndr import auth #, get_events, create_event, delete_event, update_event
+from clndr import *
+from app_functions import *
 
 from PySide6.QtCore import QLocale
 from PySide6.QtGui import QFontDatabase, Qt
 from PySide6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QCalendarWidget, \
-    QApplication, QTableWidget, QHBoxLayout, QVBoxLayout, QSizePolicy, QScrollBar
+    QApplication, QHBoxLayout, QVBoxLayout, QSizePolicy, QScrollBar, QTableWidgetItem, QCheckBox, QGroupBox, QTimeEdit, \
+    QComboBox, QTextEdit
+
+from data_storage import get_groups
+
+
+class EventRow(QWidget):
+    def __init__(self, date):
+        super().__init__()
+
+        layout = QHBoxLayout(self)
+
+        self.date = date
+
+        self.check = QCheckBox()
+        layout.addWidget(self.check)
+
+        self.start = QTimeEdit()
+        layout.addWidget(self.start)
+
+        self.end = QTimeEdit()
+        layout.addWidget(self.end)
+
+        self.title = QTextEdit()
+        layout.addWidget(self.title)
+
+        #choose group from list
+        self.group = QComboBox()
+        # self.group.addItems([group.summary for group in get_groups()]
+        self.group.addItems(["Group 1", "Group 2", "Group 3"])
+        layout.addWidget(self.group)
+
+        self.setFixedHeight(26)
+        self.check.setFixedWidth(30)
+        self.start.setFixedWidth(80)
+        self.end.setFixedWidth(80)
+        self.title.setFixedWidth(300)
+        self.group.setFixedWidth(80)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+
+class Header(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        layout = QHBoxLayout(self)
+
+        self.check_label = QLabel("✔")
+        layout.addWidget(self.check_label)
+
+        self.start_label = QLabel("Start Time")
+        layout.addWidget(self.start_label)
+
+        self.end_label = QLabel("End Time")
+        layout.addWidget(self.end_label)
+
+        self.title_label = QLabel("Title")
+        layout.addWidget(self.title_label)
+
+        self.group_label = QLabel("Group")
+        layout.addWidget(self.group_label)
+
+        self.setFixedHeight(30)
+        self.check_label.setFixedWidth(30)
+        self.start_label.setFixedWidth(80)
+        self.end_label.setFixedWidth(80)
+        self.title_label.setFixedWidth(300)
+        self.group_label.setFixedWidth(80)
 
 
 class EventsApp(QMainWindow):
@@ -31,24 +99,29 @@ class EventsApp(QMainWindow):
         event_list_container.setContentsMargins(0, 0, 0, 0)
 
         event_list_label = QLabel("Events")
-        event_list_layout.addWidget(event_list_label, alignment=Qt.AlignCenter)
+        event_list_label.setFixedHeight(15)
+        event_list_layout.addWidget(event_list_label,
+                                    alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
 
-        event_list_table = QTableWidget()
-        event_list_table.setColumnCount(5)
-        headers = ["✓", "Start Time", "End Time", "Title", "Group"]
-        event_list_table.setHorizontalHeaderLabels(headers)
-        event_list_table.setHorizontalScrollBar(QScrollBar())
-        event_list_table.setVerticalScrollBar(QScrollBar())
-        event_list_table.setColumnWidth(0, 10)
-        event_list_table.setColumnWidth(1, 90)
-        event_list_table.setColumnWidth(2, 90)
-        event_list_table.setColumnWidth(3, 280)
-        event_list_table.setColumnWidth(4, 100)
+        event_list_header = Header()
+        event_list_header.setFixedHeight(30)
+        event_list_layout.addWidget(event_list_header,
+                                    alignment=Qt.AlignmentFlag.AlignTop)
 
-        event_list_layout.addWidget(event_list_table)
+        event_list_groupbox = QGroupBox()
+        event_list_groupbox.setFixedHeight(int(event_list_container.width() * 0.85))
+        self.event_list_groupbox_layout = QVBoxLayout(event_list_groupbox)
+        self.event_list_groupbox_layout.setContentsMargins(0, 0, 0, 0)
+        self.event_list_groupbox_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # for i in range(10):
+        #     self.event_list_groupbox_layout.addWidget(EventRow())
+
+        event_list_layout.addWidget(event_list_groupbox)
+
+        event_list_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         main_layout.addWidget(event_list_container)
-        event_list_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         management_container = QWidget()
         management_layout = QVBoxLayout(management_container)
@@ -56,11 +129,13 @@ class EventsApp(QMainWindow):
 
         calendar_container = QWidget()
         calendar_layout = QVBoxLayout(calendar_container)
-        calendar_widget = QCalendarWidget()
-        calendar_widget.setVerticalHeaderFormat(QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader)
-        calendar_widget.setFirstDayOfWeek(Qt.Monday)
-        calendar_widget.setLocale(QLocale(QLocale.English))
-        calendar_layout.addWidget(calendar_widget)
+        self.calendar_widget = QCalendarWidget()
+        self.calendar_widget.setVerticalHeaderFormat(QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader)
+        self.calendar_widget.setFirstDayOfWeek(Qt.Monday)
+        self.calendar_widget.setLocale(QLocale(QLocale.English))
+        self.calendar_widget.clicked.connect(self.add_event1)
+
+        calendar_layout.addWidget(self.calendar_widget)
 
         operations_container = QWidget()
         operations_layout = QVBoxLayout(operations_container)
@@ -92,6 +167,29 @@ class EventsApp(QMainWindow):
 
         # Apply styles using CSS
         self.setStyleSheet(style_sheet)
+
+    # choose date from calendar and add event to table
+    def add_event(self):
+        pass
+
+    # delete chosen event from table
+    def delete_event(self):
+        pass
+
+    # export added event to google calendar
+    def export_event(self):
+        pass
+
+    # import events from google calendar
+    def import_event(self):
+        pass
+
+    def add_event1(self, date):
+        event_row1 = EventRow(date)
+        event_row2 = EventRow(date)
+
+        self.event_list_groupbox_layout.addWidget(event_row1)
+        self.event_list_groupbox_layout.addWidget(event_row2)
 
 
 if __name__ == "__main__":

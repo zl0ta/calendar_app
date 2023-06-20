@@ -14,16 +14,49 @@ style_sheet = """
                 border-radius: 4px;
             }
 
-            QCalendarWidget QAbstractItemView:enabled {
+            QCheckBox {
                 color: #202124;
-                selection-background-color: #1a73e8;
-                selection-color: #fff;
             }
 
-            QTableWidget {
+            QTimeEdit {
                 background-color: #fff;
                 border: 1px solid #ccc;
-                selection-background-color: #1a73e8;
+                color: #202124;
+                padding: 2px;
+            }
+
+            QTextEdit {
+                background-color: #fff;
+                border: 1px solid #ccc;
+                color: #202124;
+                padding: 2px;
+            }
+
+            QComboBox {
+                background-color: #fff;
+                border: 1px solid #ccc;
+                color: #202124;
+                padding: 2px;
+                padding-right: 20px;
+                selection-background-color: #e8f0fe;
+                selection-color: #4285f4;
+            }
+
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 20px;
+                border: none;
+                background-color: transparent;
+            }
+
+            QComboBox::down-arrow {
+                image: url(down_arrow.png);
+            }
+
+            QCalendarWidget {
+                background-color: #fff;
+                selection-background-color: #4285f4;
                 selection-color: #fff;
             }
 
