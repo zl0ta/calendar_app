@@ -13,6 +13,19 @@ style_sheet = """
                 padding: 8px 16px;
                 border-radius: 4px;
             }
+            
+            QPushButton:hover {
+                background-color: #0d47a1;
+            }
+            
+            QPushButton:pressed {
+                background-color: #0d47a1;
+            }
+            
+            QPushButton:disabled {
+                background-color: #e8eaed;
+                color: #a5a7aa;
+            }
 
             QCheckBox {
                 color: #202124;
@@ -56,7 +69,7 @@ style_sheet = """
 
             QCalendarWidget {
                 background-color: #fff;
-                selection-background-color: #4285f4;
+                selection-background-color: #fbbc05;
                 selection-color: #fff;
             }
 
