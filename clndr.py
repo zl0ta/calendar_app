@@ -1,5 +1,6 @@
 import os.path
 import datetime as dt
+import time
 
 from PySide6.QtWidgets import QMessageBox
 from google.auth.transport.requests import Request
@@ -57,7 +58,8 @@ def gc_get_events(service):
         events_result = service.events().list(calendarId=calendar['id'], timeMin=now,
                                               singleEvents=True, orderBy='startTime').execute()
 
-        sorted_events = sorted(events_result.get("items", []), key=lambda x: x.get("start", {}).get("dateTime", x.get("start", {}).get("date", "")))
+        sorted_events = sorted(events_result.get("items", []),
+                               key=lambda x: x.get("start", {}).get("dateTime", x.get("start", {}).get("date", "")))
 
         for sorted_event in sorted_events:
             imported_event = {
@@ -74,10 +76,13 @@ def gc_get_events(service):
     return events
 
 
-
 # construct event object, based input date, time, title and calendar id
 def gc_create_event(date, start_time, end_time, title):
-    date = date.toString('yyyy-MM-dd')
+    if type(date) is dt.date:
+        date = date.strftime('%Y-%m-%d')
+    else:
+        date = date.toString('yyyy-MM-dd')
+    # date = date.toString('yyyy-MM-dd')
     start_time = start_time.toString('HH:mm')
     end_time = end_time.toString('HH:mm')
     event = {
@@ -105,19 +110,41 @@ def gc_create_event(date, start_time, end_time, title):
 
 
 # upload event to calendar
-def gc_upload_event(service, event, group):
+def gc_upload_event(service, event, old_group, new_group):
+    old_calendar_id = None
+    new_calendar_id = None
     for item in gc_get_calendar_list(service)['items']:
-        if item['id'] == group:
-            calendar_id = item['id']
+        if item['id'] == old_group:
+            old_calendar_id = item['id']
             break
 
-    #if event exists, update it, else create new
-    if event['id'] is not None:
-        if service.events().get(calendarId=calendar_id, eventId=event['id']).execute():
-            event = service.events().update(calendarId=calendar_id, eventId=event['id'], body=event).execute()
-            return event['id']
+    for item in gc_get_calendar_list(service)['items']:
+        if item['id'] == new_group:
+            new_calendar_id = item['id']
+            break
 
-    event = service.events().insert(calendarId=calendar_id, body=event).execute()
+    # if event exists, update it, else create new
+    if event['id'] is not None:
+        try:
+            if service.events().get(calendarId=old_calendar_id, eventId=event['id']).execute():
+                if old_calendar_id == new_calendar_id:
+                    event = service.events().update(calendarId=old_calendar_id, eventId=event['id'], body=event).execute()
+                    return event['id']
+                else:
+
+                        service.events().delete(calendarId=old_calendar_id, eventId=event['id']).execute()
+        #ignore error 410
+        except HttpError as err:
+            if err.resp.status == 404:
+                service.events().delete(calendarId=old_calendar_id, eventId=event['id']).execute()
+            else:
+                pass
+
+    #wait for 1 sec to avoid error 409
+    time.sleep(1)
+    #avoiding error 410
+    event['id'] = None
+    event = service.events().insert(calendarId=new_calendar_id, body=event).execute()
     return event['id']
 
 

@@ -36,6 +36,7 @@ class Event(QWidget):
 
         # choosing group from list
         self.group = QComboBox()
+        # style
         self.group.addItems([group.summary for group in self.app.groups])
         layout.addWidget(self.group)
 
@@ -44,7 +45,7 @@ class Event(QWidget):
         self.start_time = self.start.time()
         self.end_time = self.end.time()
         self.title_data = self.title.toPlainText()
-        self.group_data = self.group.currentText()
+        self.group_data = self.app.groups[self.group.currentIndex()].idGCAL
 
         self.add_event_button = QPushButton("+")
         self.add_event_button.setContentsMargins(0, 0, 0, 0)
@@ -61,8 +62,6 @@ class Event(QWidget):
 
     # add data to event, when it is loaded from database or google calendar ?
     def add_data(self, event):
-        self.add_event_button.setDisabled(True)
-
         if event.idGCAL is not None:
             self.idGCAL = event.idGCAL
         self.date = event.date
@@ -73,18 +72,7 @@ class Event(QWidget):
         self.title.setText(event.title)
         self.group.setCurrentText(event.group.summary)
 
-        return self
-
-    def add_data_editing(self, event):
-        self.add_event_button.setDisabled(True)
-
-        if event.idGCAL is not None:
-            event.idGCAL = event.idGCAL
-        self.date = event.date
-        self.start.setTime(event.start_time)
-        self.end.setTime(event.end_time)
-        self.title.setText(event.title.toPlainText())
-        self.group.setCurrentText(event.group.currentText())
+        # self.add_event_button.setDisabled(True)
 
         return self
 
@@ -95,7 +83,7 @@ class Event(QWidget):
         title = self.title.toPlainText()
         group_summary = self.group.currentText()
         # get group object from group_summary
-        group = [group for group in app.groups if group.summary == group_summary][0]
+        new_group = [group for group in app.groups if group.summary == group_summary][0]
 
         # check input data
         if title == "":
@@ -109,16 +97,16 @@ class Event(QWidget):
             alert.exec()
             return
 
-        # upload to google calendar and save to database
         created_event = gc_create_event(date, start_time, end_time, title)
-        #add key 'id' to created_event
-        created_event['id'] = None
-        event_idGCAL = gc_upload_event(app.gc_service, created_event, group.idGCAL)
+        if self.idGCAL is not None:
+            created_event['id'] = self.idGCAL
+        else:
+            created_event['id'] = None
+        event_idGCAL = gc_upload_event(app.gc_service, created_event, old_group=self.group_data, new_group=new_group.idGCAL)
         self.idGCAL = event_idGCAL
-        print(group.idGCAL, group.summary)
-        db_set_event(event_idGCAL, app.db_session, date, start_time, end_time, title, group.idGCAL)
+        db_set_event(self.idGCAL, app.db_session, date, start_time, end_time, title, group_idGCAL=new_group.idGCAL)
 
-        self.add_event_button.setDisabled(True)
+        # self.add_event_button.setDisabled(True)
         app.add_event_template(self.date)
 
 class Header(QWidget):
@@ -167,7 +155,7 @@ class EventsApp(QMainWindow):
 
     def _create_ui(self):
         main_container = QWidget(self)
-        main_container.setMinimumWidth(600)
+        main_container.setMinimumWidth(400)
         self.setCentralWidget(main_container)
         main_container.setContentsMargins(0, 0, 0, 0)
 
@@ -181,7 +169,6 @@ class EventsApp(QMainWindow):
         event_list_label.setFixedHeight(15)
         event_list_layout.addWidget(event_list_label,
                                     alignment=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-        #event list label is a header. set cool contemporary style for it
         event_list_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #000000;")
 
         event_list_header = Header()
@@ -190,18 +177,13 @@ class EventsApp(QMainWindow):
                                     alignment=Qt.AlignmentFlag.AlignTop)
 
         event_list_groupbox = QGroupBox()
+        #allow scroll in event_list_groupbox if there are many events
         event_list_groupbox.setFixedHeight(int(event_list_container.height() * 0.95))
         self.event_list_groupbox_layout = QVBoxLayout(event_list_groupbox)
         self.event_list_groupbox_layout.setContentsMargins(0, 0, 0, 0)
         self.event_list_groupbox_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         event_list_layout.addWidget(event_list_groupbox)
-
-        self.tips_label = QLabel("Tips:\n1. If you want to change the event, change data in a row first, check the row and then click the Edit button")
-        self.tips_label.setWordWrap(True)
-        self.tips_label.setAlignment(Qt.AlignmentFlag.AlignBottom)
-
-        event_list_layout.addWidget(self.tips_label)
 
         event_list_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
@@ -233,15 +215,11 @@ class EventsApp(QMainWindow):
         delete_events_button = QPushButton("Delete chosen events")
         delete_events_button.clicked.connect(partial(self.delete_chosen_events))
 
-        edit_event_button = QPushButton("Edit chosen event")
-        edit_event_button.clicked.connect(partial(self.edit_chosen_event))
-
         add_event_template_button = QPushButton("Add new event form")
         add_event_template_button.clicked.connect(partial(self.add_event_template))
 
         operations_layout.addWidget(import_events_button)
         operations_layout.addWidget(delete_events_button)
-        operations_layout.addWidget(edit_event_button)
         operations_layout.addWidget(add_event_template_button)
 
         management_layout.addWidget(calendar_container)

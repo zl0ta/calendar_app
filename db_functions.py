@@ -38,7 +38,9 @@ def db_set_event(idGCAL, db_session, date, start_time, end_time, title, group_id
     if type(date) is py_datetime:
         python_date = date.date()
     else:
-        python_date = py_date(date.year(), date.month(), date.day())
+        print("date: ", date, "type: ", type(date))
+        python_date = date
+        #python_date = py_date(date.year(), date.month(), date.day())
 
     if type(start_time) is py_datetime:
         start_time = start_time
@@ -54,11 +56,11 @@ def db_set_event(idGCAL, db_session, date, start_time, end_time, title, group_id
     if db_session.query(Event).filter(Event.idGCAL == event.idGCAL).first() is None:
         db_session.add(event)
     else:
+        print("event: ", event, "type: ", type(event))
+        print(event.idGCAL, event.date, event.start_time, event.end_time, event.title, group_idGCAL)
         db_session.query(Event).filter(Event.idGCAL == event.idGCAL).update({'date': event.date,
-                                                                             'start_time': event.start_time,
-                                                                             'end_time': event.end_time,
-                                                                             'title': event.title,
-                                                                             'group': event.group})
+                                                            'start_time': event.start_time, 'end_time': event.end_time,
+                                                            'title': event.title, 'group_idGCAL': group_idGCAL})
     db_session.commit()
 
 

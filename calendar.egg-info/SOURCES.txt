@@ -1,0 +1,7 @@
+README.md
+setup.py
+calendar.egg-info/PKG-INFO
+calendar.egg-info/SOURCES.txt
+calendar.egg-info/dependency_links.txt
+calendar.egg-info/requires.txt
+calendar.egg-info/top_level.txt
