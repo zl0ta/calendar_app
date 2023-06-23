@@ -1,5 +1,6 @@
 from datetime import date as py_date, datetime as py_datetime, time as py_time
 
+from PySide6.QtCore import QDate
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -37,10 +38,10 @@ def db_get_groups(event_app):
 def db_set_event(idGCAL, db_session, date, start_time, end_time, title, group_idGCAL):
     if type(date) is py_datetime:
         python_date = date.date()
+    elif type(date) is QDate:
+        python_date = py_date(date.year(), date.month(), date.day())
     else:
-        print("date: ", date, "type: ", type(date))
         python_date = date
-        #python_date = py_date(date.year(), date.month(), date.day())
 
     if type(start_time) is py_datetime:
         start_time = start_time

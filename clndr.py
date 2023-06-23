@@ -8,30 +8,37 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from urllib3 import HTTPSConnectionPool
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 
 def auth():
-    creds = None
+    try:
+        creds = None
 
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        if os.path.exists('token.json'):
+            creds = Credentials.from_authorized_user_file('token.json', SCOPES)
 
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
 
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+                creds = flow.run_local_server(port=0)
 
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+            with open('token.json', 'w') as token:
+                token.write(creds.to_json())
 
-    return creds
-
-
+        return creds
+    #no internet connection:
+    except HTTPSConnectionPool:
+        msg = QMessageBox()
+        msg.setWindowTitle("No internet connection")
+        msg.setText("You are not connected to the internet. Please connect and try again.")
+        msg.setIcon(QMessageBox.Critical)
+        msg.exec()
 # get service object
 def gc_get_service():
     try:
@@ -152,9 +159,10 @@ def gc_upload_event(service, event, old_group, new_group):
 def gc_delete_event(app, event):
     try:
         service = app.gc_service
-        calendar_id = None
-        for item in gc_get_calendar_list(service)['items']:
-            if item['summary'] == event.group_data:
+        #find event.group.currentText() == 'summary'
+        calendars = gc_get_calendar_list(service)['items']
+        for item in calendars:
+            if item['summary'] == event.group.currentText():
                 calendar_id = item['id']
                 break
         service.events().list(calendarId=calendar_id).execute()
