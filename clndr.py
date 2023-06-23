@@ -1,6 +1,7 @@
 import os.path
 import datetime as dt
 
+from PySide6.QtWidgets import QMessageBox
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -50,37 +51,28 @@ def gc_get_calendar_list(service):
 def gc_get_events(service):
     now = dt.datetime.now().isoformat() + 'Z'
     calendar_list = gc_get_calendar_list(service)
-
-    # add all events from all calendars to events_result
-    events_result = []
-    for item in calendar_list['items']:
-        events_result.append(service.events().list(calendarId=item['id'], timeMin=now,
-                                                   singleEvents=True, orderBy='startTime').execute())
-
-    events_items = []
-    for result in events_result:
-        events_items.extend(result.get("items", []))
-        events_items = sorted(events_items, key=lambda x: x["start"].get("dateTime", x["start"].get("date")))
-
-    if not events_items:
-        print("No upcoming events found!")
-        return
-
-    # Format: event = {idGCAL, title, date, start_time, end_time, calendar_summary}
     events = []
-    for item in events_items:
-        event = {
-            'id': item['id'],
-            'title': item['summary'],
-            # get date, start_time and end_time from '2023-06-21T15:15:00+02:00' format string
-            'date': dt.datetime.strptime(item['start']['dateTime'][:10], '%Y-%m-%d'),
-            'start_time': dt.datetime.strptime(item['start']['dateTime'][11:16], '%H:%M'),
-            'end_time': dt.datetime.strptime(item['end']['dateTime'][11:16], '%H:%M'),
-            'calendar': item
-        }
-        events.append(event)
+
+    for calendar in calendar_list['items']:
+        events_result = service.events().list(calendarId=calendar['id'], timeMin=now,
+                                              singleEvents=True, orderBy='startTime').execute()
+
+        sorted_events = sorted(events_result.get("items", []), key=lambda x: x.get("start", {}).get("dateTime", x.get("start", {}).get("date", "")))
+
+        for sorted_event in sorted_events:
+            imported_event = {
+                'id': sorted_event['id'],
+                'date': dt.datetime.strptime(sorted_event['start']['dateTime'][:10], '%Y-%m-%d'),
+                'start_time': dt.datetime.strptime(sorted_event['start']['dateTime'][11:16], '%H:%M'),
+                'end_time': dt.datetime.strptime(sorted_event['end']['dateTime'][11:16], '%H:%M'),
+                'title': sorted_event['summary'],
+                'group': calendar['id']
+            }
+            print(calendar['id'], calendar['summary'], sorted_event['summary'])
+            events.append(imported_event)
 
     return events
+
 
 
 # construct event object, based input date, time, title and calendar id
@@ -115,11 +107,17 @@ def gc_create_event(date, start_time, end_time, title):
 # upload event to calendar
 def gc_upload_event(service, event, group):
     for item in gc_get_calendar_list(service)['items']:
-        if item['summary'] == group:
+        if item['id'] == group:
             calendar_id = item['id']
             break
-    event = service.events().insert(calendarId=calendar_id, body=event).execute()
 
+    #if event exists, update it, else create new
+    if event['id'] is not None:
+        if service.events().get(calendarId=calendar_id, eventId=event['id']).execute():
+            event = service.events().update(calendarId=calendar_id, eventId=event['id'], body=event).execute()
+            return event['id']
+
+    event = service.events().insert(calendarId=calendar_id, body=event).execute()
     return event['id']
 
 
@@ -132,8 +130,12 @@ def gc_delete_event(app, event):
             if item['summary'] == event.group_data:
                 calendar_id = item['id']
                 break
-        print(event.idGCAL)
         service.events().list(calendarId=calendar_id).execute()
-        service.events().delete(calendarId=calendar_id, eventId=event.idGCAL).execute()
+        if calendar_id is not None and event.idGCAL is not None:
+            service.events().delete(calendarId=calendar_id, eventId=event.idGCAL).execute()
+        else:
+            alert = QMessageBox()
+            alert.setText("Event not found!")
+
     except HttpError as err:
         print("An error occured: ", err)

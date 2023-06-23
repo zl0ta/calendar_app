@@ -17,31 +17,48 @@ def db_connect():
     return session
 
 
-def db_load_groups(event_app):
+def db_set_groups(event_app):
     calendar_list = gc_get_calendar_list(event_app.gc_service)
     groups = [Group(summary=group['summary'], idGCAL=group['id']) for group in calendar_list['items']]
     for group in groups:
         if event_app.db_session.query(Group).filter(Group.idGCAL == group.idGCAL).first() is None:
             event_app.db_session.add(group)
+        else:
+            event_app.db_session.query(Group).filter(Group.idGCAL == group.idGCAL).update({'summary': group.summary})
     event_app.db_session.commit()
 
-    event_app.group_titles = [group.summary for group in groups]
+    return groups
 
 
 def db_get_groups(event_app):
     return event_app.db_session.query(Group).all()
 
 
-def db_load_event(idGCAL, db_session, date, start_time, end_time, title, group):
-    python_date = py_date(date.year(), date.month(), date.day())
-    start_datetime = py_datetime.combine(python_date, py_time(start_time.hour(), start_time.minute()))
-    end_datetime = py_datetime.combine(python_date, py_time(end_time.hour(), end_time.minute()))
-    group = db_session.query(Group).filter(Group.summary == group).first()
-    group_idGCAL = group.idGCAL
-    event = Event(idGCAL=idGCAL, date=python_date, start_time=start_datetime, end_time=end_datetime, title=title, group=group_idGCAL)
+def db_set_event(idGCAL, db_session, date, start_time, end_time, title, group_idGCAL):
+    if type(date) is py_datetime:
+        python_date = date.date()
+    else:
+        python_date = py_date(date.year(), date.month(), date.day())
+
+    if type(start_time) is py_datetime:
+        start_time = start_time
+    else:
+        start_time = py_datetime.combine(python_date, py_time(start_time.hour(), start_time.minute()))
+    if type(end_time) is py_datetime:
+        end_time = end_time
+    else:
+        end_time = py_datetime.combine(python_date, py_time(end_time.hour(), end_time.minute()))
+
+    event = Event(idGCAL=idGCAL, date=python_date, start_time=start_time, end_time=end_time, title=title, group_idGCAL=group_idGCAL)
 
     if db_session.query(Event).filter(Event.idGCAL == event.idGCAL).first() is None:
         db_session.add(event)
+    else:
+        db_session.query(Event).filter(Event.idGCAL == event.idGCAL).update({'date': event.date,
+                                                                             'start_time': event.start_time,
+                                                                             'end_time': event.end_time,
+                                                                             'title': event.title,
+                                                                             'group': event.group})
     db_session.commit()
 
 
