@@ -9,7 +9,7 @@ from PySide6.QtCore import QLocale, QTime, QDate
 from PySide6.QtGui import QFontDatabase, Qt
 from PySide6.QtWidgets import QMainWindow, QWidget, QPushButton, QLabel, QCalendarWidget, \
     QApplication, QHBoxLayout, QVBoxLayout, QSizePolicy, QCheckBox, QGroupBox, QTimeEdit, \
-    QComboBox, QTextEdit, QMessageBox, QStyle
+    QComboBox, QTextEdit, QMessageBox
 
 
 class Event(QWidget):
@@ -98,16 +98,13 @@ class Event(QWidget):
             return
 
         created_event = gc_create_event(date, start_time, end_time, title)
-        if self.idGCAL is not None:
-            created_event['id'] = self.idGCAL
-        else:
-            created_event['id'] = None
-        event_idGCAL = gc_upload_event(app.gc_service, created_event, old_group=self.group_data, new_group=new_group.idGCAL)
+        created_event['id'] = self.idGCAL if self.idGCAL != "" else None
+
+        #for creating and updating event in google calendar
+        event_idGCAL = gc_upload_event(app.gc_service, created_event, new_group.idGCAL)
         self.idGCAL = event_idGCAL
         db_set_event(self.idGCAL, app.db_session, date, start_time, end_time, title, group_idGCAL=new_group.idGCAL)
 
-        # self.add_event_button.setDisabled(True)
-        app.add_event_template(self.date)
 
 class Header(QWidget):
     def __init__(self):
@@ -177,7 +174,6 @@ class EventsApp(QMainWindow):
                                     alignment=Qt.AlignmentFlag.AlignTop)
 
         event_list_groupbox = QGroupBox()
-        #allow scroll in event_list_groupbox if there are many events
         event_list_groupbox.setFixedHeight(int(event_list_container.height() * 0.95))
         self.event_list_groupbox_layout = QVBoxLayout(event_list_groupbox)
         self.event_list_groupbox_layout.setContentsMargins(0, 0, 0, 0)
@@ -201,7 +197,7 @@ class EventsApp(QMainWindow):
         # monday as first day of week
         self.calendar_widget.setFirstDayOfWeek(Qt.DayOfWeek.Monday)
         # set locale to english
-        self.calendar_widget.setLocale(QLocale(QLocale.English))
+        self.calendar_widget.setLocale(QLocale(QLocale.Language.English, QLocale.Country.UnitedStates))
         # set current date
         self.calendar_widget.setSelectedDate(QDate.currentDate())
         self.calendar_widget.clicked.connect(partial(self.show_events_for_date))
@@ -216,7 +212,7 @@ class EventsApp(QMainWindow):
         delete_events_button.clicked.connect(partial(self.delete_chosen_events))
 
         add_event_template_button = QPushButton("Add new event form")
-        add_event_template_button.clicked.connect(partial(self.add_event_template))
+        add_event_template_button.clicked.connect(partial(self.add_event_template, self.calendar_widget.selectedDate()))
 
         operations_layout.addWidget(import_events_button)
         operations_layout.addWidget(delete_events_button)
@@ -236,7 +232,7 @@ class EventsApp(QMainWindow):
         font_id = QFontDatabase.addApplicationFont("ProductSans-Regular.ttf")
         font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
         font_size = 11
-        font = QFontDatabase.systemFont(QFontDatabase.GeneralFont)
+        font = QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont)
         font.setFamily(font_family)
         font.setPointSize(font_size)
         self.setFont(font)

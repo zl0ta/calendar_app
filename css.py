@@ -1,5 +1,3 @@
-# css.py
-
 style_sheet = """
     QLabel {
         color: #202124;

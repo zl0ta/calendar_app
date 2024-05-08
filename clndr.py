@@ -37,8 +37,10 @@ def auth():
         msg = QMessageBox()
         msg.setWindowTitle("No internet connection")
         msg.setText("You are not connected to the internet. Please connect and try again.")
-        msg.setIcon(QMessageBox.Critical)
+        msg.setIcon(QMessageBox.Icon.Critical)
         msg.exec()
+
+
 # get service object
 def gc_get_service():
     try:
@@ -69,6 +71,11 @@ def gc_get_events(service):
                                key=lambda x: x.get("start", {}).get("dateTime", x.get("start", {}).get("date", "")))
 
         for sorted_event in sorted_events:
+            #if event is all day, set start time to 00:00 and end time to 23:59
+            if 'dateTime' not in sorted_event['start']:
+                sorted_event['start']['dateTime'] = sorted_event['start']['date'] + 'T00:00:00'
+                sorted_event['end']['dateTime'] = sorted_event['end']['date'] + 'T23:59:59'
+
             imported_event = {
                 'id': sorted_event['id'],
                 'date': dt.datetime.strptime(sorted_event['start']['dateTime'][:10], '%Y-%m-%d'),
@@ -117,42 +124,37 @@ def gc_create_event(date, start_time, end_time, title):
 
 
 # upload event to calendar
-def gc_upload_event(service, event, old_group, new_group):
-    old_calendar_id = None
-    new_calendar_id = None
-    for item in gc_get_calendar_list(service)['items']:
-        if item['id'] == old_group:
-            old_calendar_id = item['id']
-            break
-
-    for item in gc_get_calendar_list(service)['items']:
-        if item['id'] == new_group:
-            new_calendar_id = item['id']
-            break
-
-    # if event exists, update it, else create new
-    if event['id'] is not None:
-        try:
-            if service.events().get(calendarId=old_calendar_id, eventId=event['id']).execute():
-                if old_calendar_id == new_calendar_id:
-                    event = service.events().update(calendarId=old_calendar_id, eventId=event['id'], body=event).execute()
-                    return event['id']
-                else:
-
-                        service.events().delete(calendarId=old_calendar_id, eventId=event['id']).execute()
-        #ignore error 410
-        except HttpError as err:
-            if err.resp.status == 404:
-                service.events().delete(calendarId=old_calendar_id, eventId=event['id']).execute()
+def gc_upload_event(service, event, new_group):
+    #create event if it doesn't exist
+    #update event if it exists and group is the same
+    #move event to another calendar if it exists and group is different
+    try:
+        if event['id'] is None:
+            #create event
+            created_event = service.events().insert(calendarId=new_group, body=event).execute()
+            #return id of created event
+            return created_event['id']
+        else:
+            #find event.group.currentText() == 'summary'
+            calendars = gc_get_calendar_list(service)['items']
+            calendar_id = None
+            for item in calendars:
+                if item['summary'] == new_group:
+                    calendar_id = item['id']
+                    break
+            #if event exists in another calendar
+            if calendar_id is not None and event['group'] != new_group:
+                #move event to another calendar
+                moved_event = service.events().move(calendarId=calendar_id, eventId=event['id'], destination=calendar_id).execute()
+                #return id of moved event
+                return moved_event['id']
             else:
-                pass
-
-    #wait for 1 sec to avoid error 409
-    time.sleep(1)
-    #avoiding error 410
-    event['id'] = None
-    event = service.events().insert(calendarId=new_calendar_id, body=event).execute()
-    return event['id']
+                #update event
+                updated_event = service.events().update(calendarId=new_group, eventId=event['id'], body=event).execute()
+                #return id of updated event
+                return updated_event['id']
+    except HttpError as err:
+        print("An error occured: ", err)
 
 
 # delete event from calendar
@@ -161,6 +163,7 @@ def gc_delete_event(app, event):
         service = app.gc_service
         #find event.group.currentText() == 'summary'
         calendars = gc_get_calendar_list(service)['items']
+        calendar_id = None
         for item in calendars:
             if item['summary'] == event.group.currentText():
                 calendar_id = item['id']
